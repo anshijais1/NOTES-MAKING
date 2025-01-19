@@ -1,59 +1,94 @@
 import { Copy, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useDispatch, useSelector } from "react-redux";
-import { addToPastes, updatePastes } from "../redux/pasteSlice";
 import { useSearchParams } from "react-router-dom";
+
+const API_BASE_URL = "http://localhost:3000"; // Replace with your backend URL
 
 const Home = () => {
   const [value, setValue] = useState("");
   const [title, setTitle] = useState("");
-  const [searchParams, setSearchParams] = useSearchParams(); // Destructure useSearchParams
-  const pasteId = searchParams.get("pasteId"); // Get pasteId from the search params
-  const pastes = useSelector((state) => state.paste.pastes);
-  const dispatch = useDispatch();
+  const [pastes, setPastes] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pasteId = searchParams.get("pasteId");
 
-  const createPaste = () => {
+  // Fetch all pastes
+  const fetchPastes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pastes`);
+      const data = await response.json();
+      setPastes(data);
+    } catch (error) {
+      console.error("Error fetching pastes:", error);
+    }
+  };
+
+  // Create or update paste
+  const createOrUpdatePaste = async () => {
     const paste = {
-      title: title,
+      title,
       content: value,
-      _id:
-        pasteId ||
-        Date.now().toString(36) + Math.random().toString(36).substring(2),
       createdAt: new Date().toISOString(),
     };
 
-    if (pasteId) {
-      // If pasteId is present, update the paste
-      dispatch(updatePastes(paste));
-    } else {
-      dispatch(addToPastes(paste));
+    try {
+      if (pasteId) {
+        // Update paste
+        await fetch(`${API_BASE_URL}/pastes/${pasteId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paste),
+        });
+        toast.success("Paste updated successfully!");
+      } else {
+        // Create new paste
+        await fetch(`${API_BASE_URL}/pastes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paste),
+        });
+        toast.success("Paste created successfully!");
+      }
+
+      // Reset form and reload pastes
+      setTitle("");
+      setValue("");
+      setSearchParams({});
+      fetchPastes();
+    } catch (error) {
+      console.error("Error saving paste:", error);
+      toast.error("Failed to save paste.");
     }
-
-    setTitle("");
-    setValue("");
-
-    // Remove the pasteId from the URL after creating/updating a paste
-    setSearchParams({});
   };
+
+  // Fetch a specific paste when pasteId changes
+  useEffect(() => {
+    const fetchPasteById = async (id) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/pastes/${id}`);
+        const data = await response.json();
+        setTitle(data.title);
+        setValue(data.content);
+      } catch (error) {
+        console.error("Error fetching paste:", error);
+      }
+    };
+
+    if (pasteId) {
+      fetchPasteById(pasteId);
+    }
+  }, [pasteId]);
+
+  // Fetch all pastes on initial load
+  useEffect(() => {
+    fetchPastes();
+  }, []);
 
   const resetPaste = () => {
     setTitle("");
     setValue("");
     setSearchParams({});
-    // navigate("/");
   };
-
-  useEffect(() => {
-    if (pasteId) {
-      const paste = pastes.find((p) => p._id === pasteId);
-      if (paste) {
-        setTitle(paste.title);
-        setValue(paste.content);
-      }
-    }
-  }, [pasteId, pastes]);
-
 
   return (
     <div className="w-full h-full py-10 max-w-[1200px] mx-auto px-5 lg:px-0">
@@ -64,24 +99,24 @@ const Home = () => {
             placeholder="Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            // Dynamic width based on whether pasteId is present
             className={`${
               pasteId ? "w-[80%]" : "w-[85%]"
             } text-black border border-input rounded-md p-2`}
           />
           <button
             className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700"
-            onClick={createPaste}
+            onClick={createOrUpdatePaste}
           >
             {pasteId ? "Update Paste" : "Create My Paste"}
           </button>
-
-        {pasteId &&  <button
-            className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700"
-            onClick={resetPaste}
-          >
-            <PlusCircle size={20} />
-          </button>}
+          {pasteId && (
+            <button
+              className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700"
+              onClick={resetPaste}
+            >
+              <PlusCircle size={20} />
+            </button>
+          )}
         </div>
 
         <div
@@ -91,42 +126,29 @@ const Home = () => {
             className={`w-full rounded-t flex items-center justify-between gap-x-4 px-4 py-2 border-b border-[rgba(128,121,121,0.3)]`}
           >
             <div className="w-full flex gap-x-[6px] items-center select-none group">
-              <div className="w-[13px] h-[13px] rounded-full flex items-center justify-center p-[1px] overflow-hidden bg-[rgb(255,95,87)]" />
-
-              <div
-                className={`w-[13px] h-[13px] rounded-full flex items-center justify-center p-[1px] overflow-hidden bg-[rgb(254,188,46)]`}
-              />
-
-              <div className="w-[13px] h-[13px] rounded-full flex items-center justify-center p-[1px] overflow-hidden bg-[rgb(45,200,66)]" />
+              <div className="w-[13px] h-[13px] rounded-full bg-[rgb(255,95,87)]" />
+              <div className="w-[13px] h-[13px] rounded-full bg-[rgb(254,188,46)]" />
+              <div className="w-[13px] h-[13px] rounded-full bg-[rgb(45,200,66)]" />
             </div>
-            {/* Circle and copy btn */}
-            <div
-              className={`w-fit rounded-t flex items-center justify-between gap-x-4 px-4`}
+            <button
+              className={`flex justify-center items-center transition-all duration-300 ease-in-out group`}
+              onClick={() => {
+                navigator.clipboard.writeText(value);
+                toast.success("Copied to Clipboard", {
+                  position: "top-right",
+                });
+              }}
             >
-              {/*Copy  button */}
-              <button
-                className={`flex justify-center items-center  transition-all duration-300 ease-in-out group`}
-                onClick={() => {
-                  navigator.clipboard.writeText(value);
-                  toast.success("Copied to Clipboard", {
-                    position: "top-right",
-                  });
-                }}
-              >
-                <Copy className="group-hover:text-sucess-500" size={20} />
-              </button>
-            </div>
+              <Copy className="group-hover:text-sucess-500" size={20} />
+            </button>
           </div>
 
-          {/* TextArea */}
           <textarea
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="Write Your Content Here...."
-            className="w-full p-3  focus-visible:ring-0"
-            style={{
-              caretColor: "#000",
-            }}
+            className="w-full p-3 focus-visible:ring-0"
+            style={{ caretColor: "#000" }}
             rows={20}
           />
         </div>

@@ -1,23 +1,49 @@
 import { Calendar, Copy, Eye, PencilLine, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useSelector, useDispatch } from "react-redux";
-import { useState } from "react"; // Import useState
-import { removeFromPastes } from "../redux/pasteSlice";
+import { useState, useEffect } from "react"; // Import useEffect
 import { FormatDate } from "../utlis/formatDate";
 
-const Paste = () => {
-  const pastes = useSelector((state) => state.paste.pastes);
-  const dispatch = useDispatch();
-  const [searchTerm, setSearchTerm] = useState(""); // State to hold the search term
+const API_BASE_URL = "http://localhost:3000"; // Replace with your backend API URL
 
-  const handleDelete = (id) => {
-    dispatch(removeFromPastes(id));
+const Paste = () => {
+  const [pastes, setPastes] = useState([]); // Local state for pastes
+  const [searchTerm, setSearchTerm] = useState(""); // State for search term
+
+  // Fetch all pastes from the backend
+  const fetchPastes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pastes`);
+      const data = await response.json();
+      setPastes(data);
+    } catch (error) {
+      console.error("Error fetching pastes:", error);
+      toast.error("Failed to fetch pastes.");
+    }
+  };
+
+  // Delete a paste by ID
+  const handleDelete = async (id) => {
+    try {
+      await fetch(`${API_BASE_URL}/pastes/${id}`, {
+        method: "DELETE",
+      });
+      toast.success("Paste deleted successfully!");
+      setPastes((prev) => prev.filter((paste) => paste._id !== id)); // Update local state
+    } catch (error) {
+      console.error("Error deleting paste:", error);
+      toast.error("Failed to delete paste.");
+    }
   };
 
   // Filter pastes based on search term (by title or content)
   const filteredPastes = pastes.filter((paste) =>
     paste.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Fetch all pastes on component mount
+  useEffect(() => {
+    fetchPastes();
+  }, []);
 
   return (
     <div className="w-full h-full py-10 max-w-[1200px] mx-auto px-5 lg:px-0">
@@ -42,25 +68,24 @@ const Paste = () => {
             {filteredPastes.length > 0 ? (
               filteredPastes.map((paste) => (
                 <div
-                  key={paste?._id}
+                  key={paste._id}
                   className="border border-[rgba(128,121,121,0.3)] w-full gap-y-6 justify-between flex flex-col sm:flex-row p-4 rounded-[0.3rem]"
                 >
-                  {/* heading and Description */}
+                  {/* Heading and Description */}
                   <div className="w-[50%] flex flex-col space-y-3">
-                    <p className="text-4xl font-semibold ">{paste?.title}</p>
+                    <p className="text-4xl font-semibold">{paste.title}</p>
                     <p className="text-sm font-normal line-clamp-3 max-w-[80%] text-[#707070]">
-                      {paste?.content}
+                      {paste.content}
                     </p>
                   </div>
 
-                  {/* icons */}
+                  {/* Icons */}
                   <div className="flex flex-col gap-y-4 sm:items-end">
                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                       <button
-                        className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7]  hover:bg-transparent group hover:border-blue-500"
-                        // onClick={() => toast.error("Not working")}
+                        className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7] hover:bg-transparent group hover:border-blue-500"
                       >
-                        <a href={`/?pasteId=${paste?._id}`}>
+                        <a href={`/?pasteId=${paste._id}`}>
                           <PencilLine
                             className="text-black group-hover:text-blue-500"
                             size={20}
@@ -68,8 +93,8 @@ const Paste = () => {
                         </a>
                       </button>
                       <button
-                        className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7]  hover:bg-transparent group hover:border-pink-500"
-                        onClick={() => handleDelete(paste?._id)}
+                        className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7] hover:bg-transparent group hover:border-pink-500"
+                        onClick={() => handleDelete(paste._id)}
                       >
                         <Trash2
                           className="text-black group-hover:text-pink-500"
@@ -77,8 +102,8 @@ const Paste = () => {
                         />
                       </button>
 
-                      <button className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7]  hover:bg-transparent group hover:border-orange-500">
-                        <a href={`/pastes/${paste?._id}`} target="_blank">
+                      <button className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7] hover:bg-transparent group hover:border-orange-500">
+                        <a href={`/pastes/${paste._id}`} target="_blank">
                           <Eye
                             className="text-black group-hover:text-orange-500"
                             size={20}
@@ -86,9 +111,9 @@ const Paste = () => {
                         </a>
                       </button>
                       <button
-                        className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7]  hover:bg-transparent group hover:border-green-500"
+                        className="p-2 rounded-[0.2rem] bg-white border border-[#c7c7c7] hover:bg-transparent group hover:border-green-500"
                         onClick={() => {
-                          navigator.clipboard.writeText(paste?.content);
+                          navigator.clipboard.writeText(paste.content);
                           toast.success("Copied to Clipboard");
                         }}
                       >
@@ -99,9 +124,9 @@ const Paste = () => {
                       </button>
                     </div>
 
-                    <div className="gap-x-2 flex ">
+                    <div className="gap-x-2 flex">
                       <Calendar className="text-black" size={20} />
-                      {FormatDate(paste?.createdAt)}
+                      {FormatDate(paste.createdAt)}
                     </div>
                   </div>
                 </div>
